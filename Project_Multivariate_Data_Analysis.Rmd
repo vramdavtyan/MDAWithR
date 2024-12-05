@@ -1,0 +1,416 @@
+---
+title: "Project - Multivariate Data Analysis"
+output:
+  pdf_document: default
+  html_document: default
+date: "2024/25"
+---
+
+<div style="text-align: center;">
+  \centerline{**Team Members**}\  
+  \centerline{André Pires (64347)}
+  \centerline{Daniel Neves (64504)}
+  \centerline{Diana Santos (64478)}
+  \centerline{Matei Lupașcu (64471)}
+  \centerline{Vram Davtyan (64691)} 
+</div>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Our work is about:
+A set of data on temperature, humidity and evaporation is available, resulting from the observation of the following variables, in 46 days:
+TMAXDA - Maximum daily air temperature
+TMINDA – Minimum daily air temperature
+MTMEDA - Daily average air temperature
+TMAXDS - Maximum daily soil temperature
+TMINDS - Minimum daily soil temperature
+MTMEDS - Daily average soil temperature
+HRMAXD - Maximum daily relative humidity
+HRMIND - Minimum daily relative humidity
+MHMED - Average daily relative humidity
+FVENTOD – Wind speed.  
+EVAPOR – Evaporation
+
+## Question Number One:
+### 1. Make a preliminary analysis of the data and discuss what you have learned from this analysis. 
+
+Before the Principal Component Analysis, we decided to perform a descriptive analysis of the data.
+
+```{r}
+# Run Data
+data <- read.csv("data_8.csv", header = TRUE) # Modify the location accordingly
+head (data)
+```
+
+
+```{r}
+# Type of data
+str(data)
+```
+
+```{r}
+# Dimension of data
+dim(data)
+```
+```{r}
+# Preliminary analysis of the data
+summary(data)
+```
+Since we have $NA$ values, we decided to create a new variable $data_{clean}$ without these values included.
+
+```{r}
+# Create a new variable with no NA values
+suppressMessages(library(dplyr)) 
+# We used suppressMessages on every library import for a cleaner output in the PDF Document
+data_clean <- na.omit(data) 
+#data_selected_clean <- data_selected[1:(nrow(data_selected)-4),] ----> another way to remove Na values
+
+```
+
+```{r}
+# Dimension of data
+dim(data_clean)
+```
+```{r}
+# Preliminary analysis of the data
+summary(data_clean)
+```
+### Let's start by checking if it is necessary to normalize the data.
+
+```{r}
+# Calculate the standard deviation
+data_clean %>% summarise_if(is.numeric, sd)
+```
+The best approach is by using the correlation matrix, since the measures units are not all the same. And also, the mean and standard deviation are different.
+
+## Question Number Two:
+### 2. Conduct a principal component analysis exploring the potentialities of this method. Include in your discussion topics like dimensionality reduction, interpretation of principal components.
+
+Next we will determine the correlation matrix, as it is needed to calculate the eigenvalues and eigenvectors.
+```{r}
+# Obtain Eigenvalues and Eigenvectors (based on the correlation matrix)
+
+## 1st) Determine the correlation matrix
+cor_data_clean <- cor(data_clean)
+
+
+## 2nd) Obtain Eigenvalues and Eigenvectors
+eigen_data_clean <- eigen(cor_data_clean)
+eigen_data_clean$values 
+# We decided to only display the values, because only them are relevant for using the Kaiser's Criterion
+```
+
+Based on Kaiser's criterion we will retain the first three principal component, since  the first three eigenvalues are greater than 1.
+$$6.02758402, 2.11220562, 1.12660418  > 1$$
+
+Now let's perform a Principal Component Analysis.
+```{r}
+# Perform PCA
+pca_data_clean <- princomp(data_clean,cor = TRUE)
+# print(summary(pca_data_clean),loadings = TRUE)
+# We decided to comment the execution of this because the output contain a very high number of rows
+```
+
+With three principal components we have a total of explain variance of $84.2\%$.
+
+### Let's do a scree-plot to confirm if we really need the first three principal components.
+
+```{r}
+# Calculate total variance explained by each principal component
+
+var_data_clean = pca_data_clean$sdev^2 / sum(pca_data_clean$sdev^2)
+
+# Create scree plot - install ggplot2
+suppressMessages(library(ggplot2))
+
+
+suppressMessages(qplot(c(1:11),var_data_clean) + geom_line() +
+  xlab("Principal Component") +
+  ylab("Variance Explained") + 
+  ggtitle("Scree Plot") + 
+  ylim(0, 1))
+  
+```
+Looking at the scree plot we realize that we must select the first 3 principal components, since from the fourth component onwards the curve starts to have a reduced slope.
+
+Having reached the conclusion, with the methodologies presented previously, the ideal is to select 3 components, namely: $Z_1,Z_2,Z_3$
+
+$Z_1= -0,330 Z_1 -0,353 Z_2 -0,392 Z_3 -0,381 Z_4 -0,232 Z_5 -0,363 Z_6 +0,089 Z_7 +0,251 Z_8 +0,312 Z_9 +0,024 Z_{10} -0,336 Z_{11}$
+$Z_2= -0,078 Z_1 +0,194 Z_2 +0,052 Z_3 +0,048 Z_4 +0,532 Z_5 +0,230 Z_6 +0,018 Z_7 +0,502 Z_8 +0,357 Z_9 +0,472 Z_{10} -0,113 Z_{11}$
+$Z_3= -0,090 Z_1 -0,112 Z_2 -0,114 Z_3 -0,136 Z_4 -0,022 Z_5 -0,109 Z_6 -0,796 Z_7 -0,085 Z_8 -0,215 Z_9 +0,463 Z_{10} +0,185 Z_{11}$
+
+Identify the variables that contribute more for the explanation of each principal component retained.
+```{r}
+# Make the correlation between the original values and the values obtained through PCA
+cor(data_clean,pca_data_clean$scores)
+```
+
+```{r}
+# Apply rule for the 1st PC.   #Square Root of 6.03/11
+sqrt(eigen_data_clean$values[1]/11)
+
+# Apply rule for the 2nd PC. #Square Root of 2,11/11
+sqrt(eigen_data_clean$values[2]/11)
+
+# Apply rule for the 3st PC. #Square Root of 1,13/11
+sqrt(eigen_data_clean$values[3]/11)
+```
+### Important variables for each Principal Component
+###     1st PC important variables: tmaxda, tminda, mtmeda, tmaxds,mtmeds, mhmed, evapor
+###     2nd PC important variables: tminds, hrmind, fventod
+###     3rd PC important variables: hrmaxd
+
+
+```{r}
+suppressMessages(library(devtools))
+#install_github("vqv/ggbiplot")
+suppressMessages(require(ggbiplot))
+#install.packages("patchwork")
+suppressMessages(library(patchwork))
+suppressMessages(library(ggbiplot))
+
+```
+
+```{r}
+# Representing the data based on the principal components
+
+suppressMessages(library(factoextra))
+
+# Biplot for PC1 vs PC2
+fviz_pca_biplot(pca_data_clean, axes = c(1, 2), geom.ind = "point", label = "var") +
+  xlab("PC1") + 
+  ylab("PC2") +
+  ggtitle("Biplot: PC1 vs PC2") +
+  geom_text(aes(label = rownames(pca_data_clean$scores)), vjust = -0.5, hjust = 0.5, size = 3, color = "black") 
+
+# Biplot for PC1 vs PC3
+fviz_pca_biplot(pca_data_clean, axes = c(1, 3), geom.ind = "point", label = "var") +
+  xlab("PC1") + 
+  ylab("PC3") +
+  ggtitle("Biplot: PC1 vs PC3") +
+  geom_text(aes(label = rownames(pca_data_clean$scores)), vjust = -0.5, hjust = 0.5, size = 3, color = "black") 
+
+# Biplot for PC2 vs PC3
+fviz_pca_biplot(pca_data_clean, axes = c(2, 3), geom.ind = "point", label = "var") +
+  xlab("PC2") + 
+  ylab("PC3") +
+  ggtitle("Biplot: PC2 vs PC3")+
+  geom_text(aes(label = rownames(pca_data_clean$scores)), vjust = -0.5, hjust = 0.5, size = 3, color = "black") 
+```
+
+## Conclusions
+
+-> Variables with long vectors aligned with an axis dominate the corresponding principal component.
+
+-> PCA was used to reduce the dimensionality of the data. Instead of working with all the original variables, the data was projected into a lower dimensional space (3 main components, represented by PC1, PC2 and PC3).
+The first principal component (PC1) explains 54.8% of the data variance, while PC2 explains 19.2% and PC3 explains 10.2%. Together, these three components explain a good part of the variance (84.2%), which suggests that most of the relevant information in the original data is preserved in these three axes.
+
+-> In the PC1 vs PC2 plot, it appears that some variables (such as $"hrmind"$ and $"mhmind"$) are more correlated with PC1, while others (such as $"flventd2"$) may be more correlated with PC2.
+Variables such as $"hrmaxd"$ and $"mhmind"$ appear to be strongly aligned, suggesting a positive correlation between them.
+
+## Question Number Three:
+### 3. Conduct a cluster analysis exploring the hierarchical approach.Include in your discussion advantages and limitations of each methodology used.
+
+```{r}
+# Import the respective libraries:
+
+suppressMessages(library(tidyverse)) #data manipulation
+suppressMessages(library(cluster)) # clustering algorithm
+suppressMessages(library(factoextra)) # clustering visualization
+suppressMessages(library(dendextend)) # for comparing 2 dendograms
+suppressMessages(library(laGP)) # squared euclidian distance
+suppressMessages(library(metan)) # clustering algorithms
+```
+```{r}
+# Dissimilarity matrix: squared euclidian distance
+dist_data_clean<- distance(data_clean)
+# dist_data_clean # We decided to comment the execution of this because the output contain a very high number of rows
+```
+
+### Let's perform the hierarchical Clustering
+
+```{r}
+# Hierarchical clustering (Agglomerative) using single linkage
+hc1<- agnes(dist_data_clean,method = 'single')
+# hc1$merge # The hc1$merge object stores the matrix that describes the merging of clusters at each step of the clustering process.
+# We decided to comment the execution of this because the output contain a very high number of rows
+```
+
+```{r}
+hc1$order # The command hc1$order returns the order of the observations (data points) as they appear in the hierarchical clustering dendrogram, from left to right. This ordering is typically used for plotting the dendrogram.
+```
+
+```{r}
+hc1$ac # The command hc1$ac returns the agglomerative coefficient, which measures the strength of the clustering structure. Its value ranges from 0 to 1, where values closer to 1 indicate a stronger clustering structure and better-defined clusters.
+```
+### The Agglomerative coefficient is high!
+ 
+
+The command plot(hc1) generates a dendrogram for the hierarchical clustering (hc1). A dendrogram is a tree-like diagram that shows how observations are grouped step-by-step during the clustering process. It visualizes the merging of clusters and their distances at each step.
+
+To determine the number of clusters to consider from the dendrogram, we should look at where to "cut" the tree by choosing a height threshold. 
+By cutting the dendrogram below this large gap (around the midpoint of the vertical axis), it appears reasonable to consider 4 clusters.
+
+```{r}
+cutree(hc1,4)
+# cbind(row.names(data_clean),cutree(hc1,4)) # The code assigns each observation to one of 4 clusters from the dendrogram and combines the observation IDs with their corresponding cluster assignments into a table.
+# We decided to comment the execution of this because the output contain a very high number of rows
+```
+With another function to perform clustering --> cophenetic coefficient
+
+```{r}
+clust_1<- clustering(data_clean,distmethod = 'euclidean',clustmethod = 'single')
+clust_1$cophenetic
+```
+```{r}
+ plot(clust_1,horiz = F,ylab='Euclidian Distance',main='Single Linkage - using the clust method')
+```
+
+The command plot(hc1) generates a dendrogram for the hierarchical clustering (hc1). A dendrogram is a tree-like diagram that shows how observations are grouped step-by-step during the clustering process. It visualizes the merging of clusters and their distances at each step.
+
+
+```{r}
+# Convert agnes object to hclust
+hc1_hclust <- as.hclust(hc1)
+plot(hc1_hclust, main = 'Single Linkage - using the agnes method')
+rect.hclust(hc1_hclust, k = 4, border = 2:4)
+```
+
+plot(hc1): It plots the dendrogram of a hierarchical clustering object (hc1), visually representing how data points are grouped at different levels of similarity.
+
+rect.hclust(hc1, k=5, border=2:4): This adds colored rectangles to the dendrogram, highlighting the 5 clusters (k=5) by drawing borders in colors specified by 2:4 (e.g., red, green, blue).
+
+
+```{r}
+# Hierarchical clustering (Agglomerative) using complete linkage
+hc2<- agnes(dist_data_clean,method = 'complete')
+# hc2$merge 
+# We decided to comment the execution of this because the output contain a very high number of rows
+```
+
+```{r}
+hc2$order
+```
+
+```{r}
+hc2$ac
+```
+
+```{r}
+clust_2<- clustering(data_clean,distmethod = 'euclidean',clustmethod = 'complete')
+clust_2$cophenetic
+```
+```{r}
+plot(clust_2,horiz = F,ylab='Euclidian Distance',main='Complete Linkage - using the clust method')
+```
+
+```{r}
+# Convert agnes object to hclust
+hc2_hclust <- as.hclust(hc2)
+plot(hc2_hclust, main = 'Complete Linkage - using the agnes method')
+rect.hclust(hc2_hclust, k = 4, border = 2:4)
+```
+
+```{r}
+# Hierarchical clustering (Agglomerative) using Ward linkage
+hc3<- agnes(dist_data_clean,method = 'ward')
+# hc3$merge
+# We decided to comment the execution of this because the output contain a very high number of rows
+```
+
+```{r}
+hc3$order
+```
+
+```{r}
+hc3$ac
+```
+
+```{r}
+clust_3<- clustering(data_clean,distmethod = 'euclidean',clustmethod = 'ward.D2')
+clust_3$cophenetic
+```
+
+```{r}
+plot(clust_3,horiz = F,ylab='Euclidian Distance',main='Ward Linkage - using the clust method')
+```
+```{r}
+# Convert agnes object to hclust
+hc3_hclust <- as.hclust(hc3)
+plot(hc3_hclust, main = 'Ward Linkage - using the agnes method')
+rect.hclust(hc3_hclust, k = 4, border = 2:4)
+```
+
+### We found the Ward Linkage method to be the most suitable, as its cophenetic coefficent was the highest, therefore we considered the 4 clusters based on the visual output of the clustering with this method.
+
+```{r}
+par(mfrow=c(1,3))
+plot(clust_1,horiz = F,ylab='Euclidian distance',main= 'Single Linkage')
+
+plot(clust_2,horiz = F,ylab='Euclidian Distance',main='Complete Linkage')
+
+plot(clust_3,horiz = F,ylab='Euclidian Distance',main='Ward Linkage')
+
+```
+
+## Question Number Four:
+### 4. Compare the results obtained in (2) and (3).
+
+### PCA:
+
+Reduces data to 3 principal components explaining 84.2% of the variance:\
+PC1 explains 54.8%: Dominated by temperature and evaporation-related variables.\
+PC2 explains 19.2%: Influenced by wind speed and minimum soil temperature.\
+PC3 explains 10.2%: Associated with maximum humidity.\
+Focuses on variance and helps identify key contributing variables for each component.
+
+### Hierarchical Clustering:
+
+Groups data into 4 clusters based on Ward linkage, which had the highest agglomerative coefficient (0.86).\
+Highlights natural groupings of days with similar weather patterns (e.g., clusters based on temperature or evaporation).
+
+### Comparison between the two methods:
+
+###    Focus of analysis:
+
+PCA focuses on identifying patterns in variables by reducing dimensionality and highlighting the major contributors to variability.\
+Cluster analysis groups observations (days) into meaningful clusters based on their overall similarity.
+
+###     Outcome:
+
+PCA reduces the dataset to three main components (PC1, PC2, PC3), summarizing the relationships between variables.
+Cluster analysis identifies four distinct groups, showing how the observations (days) differ based on their profiles.
+
+###     Interpretation of results:
+
+PCA results help understand which variables dominate and contribute to the dataset's variability. For example, temperature and humidity strongly influence the first component.\
+Cluster analysis provides actionable insights by grouping days with similar weather conditions, which may be used for targeted interventions or further analysis.
+
+###     Use case:
+
+PCA is ideal for dimensionality reduction and identifying variable relationships, often used as a preprocessing step for machine learning or further statistical analysis.\
+Cluster analysis is more practical for segmentation tasks, such as identifying patterns in weather conditions over different periods.\
+
+## Question Number Five:
+### 5. Interpretation of the results. Translate the statistical results in current language, accessible to the researcher who, hypothetically, have proposed the project.
+
+### Key variables:
+
+PCA showed that temperature-related variables (tmaxda, tminda, etc.) explain most of the variation in the dataset.\
+Humidity (hrmaxd) and wind speed (fventod) also play significant roles but contribute differently to different patterns.
+
+### How the data is being grouped:
+
+Using clustering, we identified 4 distinct groups of observations. These clusters may represent patterns such as days with similar weather conditions or evaporation rates.
+
+### The importance:
+
+Instead of analyzing all variables, researchers can focus on the three principal components or representative clusters to simplify their study.\
+For example, patterns in temperature and evaporation could inform predictions about agricultural outcomes or water usage.
+
+### The usage of the information:
+
+Use PCA for predictive models to reduce complexity.\
+Use clustering to segment data into meaningful categories for targeted analysis (e.g., comparing high-evaporation days vs. low-evaporation days).\
+In essence, these techniques simplify the complex dataset, highlighting the most important variables and grouping observations for actionable insights.\
